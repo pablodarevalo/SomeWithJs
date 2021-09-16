@@ -8,10 +8,15 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
- 
+ <form action="logearse.php" method="post">
+      <input type="text" name="uid" placeholder="Usuario...">
+      <input type="text" name="pwd" placeholder="Password...">
+      <button type="submit" name="logearse">Logearse</button>
+ </form>
 <header>
-<h1>Some of Array</h1>    
-
+<h1>Some of Array</h1>
+    <p>Prueba</p>
+    
 </header>
 
 <section class="tareas">
@@ -30,3 +35,92 @@
 <script type="text/javascript" src="js/main.js"></script>
 </body>
 </html>
+<?php
+require_once "conection.php";
+if (isset($_POST["logearse"])) {
+  $uid = $_POST["uid"];
+  $pwd = $_POST["pwd"];
+  if (emptyInputLogin($uid, $pwd)) {
+    //si el usuario olvido de llenar algun input, tiro el error para luego manejarlo
+    //con el get desde el codigo html
+    header("Location: logearse.php?error=empty");
+    exit();
+  } else {
+    //si de hecho completo todos los inputs, verifico que el usuario exista.
+    //La variable $uid puede ser tanto un nombre de usuario como un mail,
+    //y la funcion uidExisteLogin comprueba que, si se ingreso uno u otro,
+    //este sea valido.
+    if (uidExisteLogin($conn, $uid) == false) {
+      header("Location: logearse.php?error=usrinexistente");
+      exit();
+    } else {
+      //si de hecho el usuario existe en la base de datos, trato de logearlo
+      login($conn, $uid, $pwd);
+    }
+  }
+}
+function login($conn, $uid, $pwd) {
+  $sql_pwd = "SELECT user_pwd FROM `users` WHERE user_uid=? OR user_email=?;";
+  $stmt = mysqli_stmt_init($conn);
+  //chequeo si el statement fallo
+  if (!mysqli_stmt_prepare($stmt, $sql_pwd)) {
+    header("Location: logearse.php?error=stmtfailed");
+    exit();
+  }
+  //si el statement fue exitoso, continuo
+  //bindeo los placeholders con la data ingresada por el usuario
+  mysqli_stmt_bind_param($stmt, "ss", $uid, $uid);
+  //ejecuto el statement, la query
+  mysqli_stmt_execute($stmt);
+  //guardo el resultado de la query en una variable
+  $resultado = mysqli_stmt_get_result($stmt);
+
+  //itero por todas las filas devueltas como resultado de la query
+  while ($fila = mysqli_fetch_assoc($resultado)) {
+    foreach ($fila as $value) {
+      if ($value == $pwd) {
+        echo "El password es correcto!";
+      } else {
+        echo "Password incorrecto. Intente nuevamente";
+      }
+    }
+  }
+  $stmt -> close();
+};
+function emptyInputLogin($uid, $pwd) {
+  //chequeo si el usuario no dejo inputs vacios
+  $resultado;
+  if (empty($uid) || empty($pwd)) {
+    $resultado = true;
+  } else {
+    $resultado = false;
+  }
+  return $resultado;
+};
+function uidExisteLogin($conn, $uid) {
+  //si bien el usuario puede entrar ingresando su nombre de usuario o mail,
+  //con un solo argumento ya puedo chequear si ingreso un usuario o mail valido,
+  //esto es, que se encuentre en la base de datos
+  $sql = "SELECT * FROM users WHERE user_uid = ? OR user_email = ?;";
+  $stmt = mysqli_stmt_init($conn);
+
+  //si preparo el statement y es falso, entonces indico que tengo un error
+  if (!mysqli_stmt_prepare($stmt, $sql)) {
+    header("Location: logearse.php?error=stmtfailed");;
+    exit();
+  }
+
+  mysqli_stmt_bind_param($stmt, "ss", $uid, $uid);
+  mysqli_stmt_execute($stmt);
+
+  $resultData = mysqli_stmt_get_result($stmt);
+
+  if ($row = mysqli_fetch_assoc($resultData)) {
+    return $row;
+  } else {
+    $result = false;
+    return $result;
+  }
+  mysqli_stmt_close($stmt);
+}
+ ?>
